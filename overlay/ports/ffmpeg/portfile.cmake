@@ -30,9 +30,9 @@ set(OPTIONS "--enable-pic --disable-doc --enable-debug --enable-runtime-cpudetec
 
 if("fedora-ffmpeg-free-safe" IN_LIST FEATURES)
     set(FEDORA_FFMPEG_FREE_SAFE ON)
-    file(DOWNLOAD "https://src.fedoraproject.org/rpms/ffmpeg/raw/f41/f/ffmpeg_free_sources" "${CURRENT_BUILDTREES_DIR}/ffmpeg_free_sources")
-    file(DOWNLOAD "https://src.fedoraproject.org/rpms/ffmpeg/raw/f41/f/enable_decoders" "${CURRENT_BUILDTREES_DIR}/enable_decoders")
-    file(DOWNLOAD "https://src.fedoraproject.org/rpms/ffmpeg/raw/f41/f/enable_encoders" "${CURRENT_BUILDTREES_DIR}/enable_encoders")
+    file(DOWNLOAD "https://src.fedoraproject.org/rpms/ffmpeg/raw/d3e50323a84dc815e5bc3d9ac54d7f6fea42e2ca/f/ffmpeg_free_sources" "${CURRENT_BUILDTREES_DIR}/ffmpeg_free_sources")
+    file(DOWNLOAD "https://src.fedoraproject.org/rpms/ffmpeg/raw/d3e50323a84dc815e5bc3d9ac54d7f6fea42e2ca/f/enable_decoders" "${CURRENT_BUILDTREES_DIR}/enable_decoders")
+    file(DOWNLOAD "https://src.fedoraproject.org/rpms/ffmpeg/raw/d3e50323a84dc815e5bc3d9ac54d7f6fea42e2ca/f/enable_encoders" "${CURRENT_BUILDTREES_DIR}/enable_encoders")
 
     file(STRINGS "${CURRENT_BUILDTREES_DIR}/ffmpeg_free_sources" FFMPEG_SOURCE_ALLOW_LIST)
     file(STRINGS "${CURRENT_BUILDTREES_DIR}/enable_decoders" FFMPEG_ENABLE_DECODERS_DIRTY)
@@ -62,6 +62,9 @@ if("fedora-ffmpeg-free-safe" IN_LIST FEATURES)
         "libavfilter/file_open.c"
         "libavformat/file_open.c"
         "libavdevice/gdigrab.c"
+        "libavcodec/ffjni.c"
+        "libavcodec/ffjni.h"
+        "libavdevice/android_camera.c"
     )
     
     if(VCPKG_TARGET_IS_WINDOWS OR VCPKG_TARGET_IS_UWP)
@@ -199,7 +202,8 @@ elseif(VCPKG_TARGET_IS_IOS)
         string(APPEND OPTIONS " --enable-avfoundation --enable-coreimage --enable-videotoolbox")
     endif()
 elseif(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "Android")
-    string(APPEND OPTIONS " --target-os=android --enable-jni --enable-mediacodec")
+    string(APPEND OPTIONS " --target-os=android --enable-jni")
+    # string(APPEND OPTIONS " --target-os=android --enable-jni --enable-mediacodec")
 elseif(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "QNX")
     string(APPEND OPTIONS " --target-os=qnx")
 endif()

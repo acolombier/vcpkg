@@ -9,7 +9,7 @@
   "dependencies": [
     {
       "name": "alsa",
-      "platform": "linux | android | freebsd | openbsd"
+      "platform": "linux | freebsd | openbsd"
     },
     {
       "name": "vcpkg-cmake",

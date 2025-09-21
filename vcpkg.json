@@ -56,7 +56,10 @@
       ]      
     },
     "fftw3",
-    "grantlee",
+    {
+      "name": "grantlee",
+      "platform": "!android"
+    },
     "gtest",
     "hidapi",
     {
@@ -91,7 +94,10 @@
       "name": "portaudio",
       "features": ["asio"]
     },
-    "portmidi",
+    {
+      "name": "portmidi",
+      "platform": "!android"
+    },
     "protobuf",
     "pthreads",
     "rubberband",

@@ -38,9 +38,10 @@
       "name": "qtbase",
       "default-features": false,
       "features": [
+        "concurrent",
         "thread"
       ],
-      "platform": "osx"
+      "platform": "osx | android"
     },
     {
       "name": "qtbase",
@@ -69,7 +70,7 @@
     "concurrent",
     {
       "name": "dbus",
-      "platform": "!(static & windows)"
+      "platform": "!(static & windows) & !android"
     },
     "dnslookup",
     "doubleconversion",
@@ -206,7 +207,7 @@
     },
     "egl": {
       "description": "EGL",
-      "supports": "linux",
+      "supports": "linux | android",
       "dependencies": [
         "egl"
       ]
@@ -301,9 +302,12 @@
           "name": "qtbase",
           "default-features": false,
           "features": [
+            "egl",
+            "freetype",
+            "gles2",
             "opengl"
           ],
-          "platform": "osx"
+          "platform": "android"
         },
         {
           "name": "qtbase",

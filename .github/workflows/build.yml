@@ -52,7 +52,16 @@ jobs:
             vcpkg_triplet: arm64-osx-min1100
             vcpkg_host_triplet: arm64-osx-min1100
             developer_dir: /Applications/Xcode_15.4.app/Contents/Developer
-            brew_extra: libtool
+            check_disk_space: df -h
+          - os: ubuntu-24.04
+            deps_name: arm64-android-release
+            vcpkg_path: /home/runner/mixxx-vcpkg
+            vcpkg_bootstrap: ./bootstrap-vcpkg.sh
+            vcpkg_triplet: arm64-android-release
+            vcpkg_host_triplet: x64-linux-release
+            android_api: 35
+            android_version: 35.0.0
+            android_ndk: 27.2.12479018
             check_disk_space: df -h
     env:
       VCPKG_DEFAULT_TRIPLET: ${{ matrix.vcpkg_triplet }}
@@ -106,6 +115,32 @@ jobs:
           brew update && brew install automake nasm autoconf-archive ${{ matrix.brew_extra }}
           sudo xcode-select --switch "$DEVELOPER_DIR"
           xcrun --show-sdk-version
+
+    - name: "[android] Bootstrap vcpkg"
+      if: startsWith(matrix.deps_name, 'arm64-android')
+      run: |
+          sudo apt-get install -y \
+            '^libxcb.*-dev' \
+            autoconf \
+            autoconf-archive \
+            bison \
+            flex \
+            google-android-cmdline-tools-13.0-installer \
+            libegl1-mesa-dev \
+            libghc-resolv-dev \
+            libglu1-mesa-dev \
+            libltdl-dev \
+            libx11-xcb-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libxrender-dev \
+            linux-libc-dev \
+            openjdk-17-jdk \
+            pkg-config \
+            python3-jinja2
+          yes | sudo sdkmanager "platforms;android-${{ matrix.android_api }}" "platform-tools" "build-tools;${{ matrix.android_version }}" "ndk;${{ matrix.android_ndk }}"
+          echo "ANDROID_NDK_HOME=/usr/lib/android-sdk/ndk/${{ matrix.android_ndk }}" >> "${GITHUB_ENV}"   
 
     - name: Check available disk space
       run: ${{ matrix.check_disk_space }}
