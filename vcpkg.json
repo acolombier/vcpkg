@@ -60,6 +60,10 @@
       "name": "grantlee",
       "platform": "!android"
     },
+    {
+      "name": "alsa",
+      "platform": "android"
+    },
     "gtest",
     "hidapi",
     {
