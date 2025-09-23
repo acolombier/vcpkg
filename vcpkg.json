@@ -62,7 +62,7 @@
     },
     {
       "name": "alsa",
-      "platform": "android"
+      "platform": "linux | android"
     },
     "gtest",
     "hidapi",
@@ -98,10 +98,7 @@
       "name": "portaudio",
       "features": ["asio"]
     },
-    {
-      "name": "portmidi",
-      "platform": "!android"
-    },
+    "portmidi",
     "protobuf",
     "pthreads",
     "rubberband",
