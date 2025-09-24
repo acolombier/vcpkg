@@ -28,6 +28,10 @@
   },
   "dependencies": [
     {
+      "name": "alsa",
+      "platform": "linux | android"
+    },
+    {
       "name": "vcpkg-cmake",
       "host": true
     },

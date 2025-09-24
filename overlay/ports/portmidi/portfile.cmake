@@ -5,7 +5,8 @@ vcpkg_from_github(
     SHA512 e5ba3f794d8c9b86099d7ec23eb662202a2c8a405e01e06b6dca6eda9d10c04d5ad94b6998b0ece428ed34837b72695d459dfb0a9d81ce178422398f38860933
     HEAD_REF master
     PATCHES
-        "android-support.patch" # Upstream PR: https://github.com/PortMidi/portmidi/pull/65
+        "ios-support.patch" # Upstream PR: https://github.com/PortMidi/portmidi/pull/65
+        "android-support.patch"
 )
 
 if(VCPKG_CRT_LINKAGE STREQUAL static)

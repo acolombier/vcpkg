@@ -1,12 +1,12 @@
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
-    REPO PortAudio/portaudio
-    REF c8b9dd2dfc1c12230f172876a0117f42d32e48b2
-    SHA512 8aa489de52c40068dc87c7a6b89e5b2fd4d10f57f69b800796c6f5e2c0db71a8094a85a06b4168d6d164a79d868b28adfd525ca4e7a8d3a0193a94face569b65
-    PATCHES
-        "0001-Add-basic-support-for-iOS-to-portaudio.patch"
-        "0002-Update-CMakeLists-with-iOS-implementation.patch"
-        "0003-Fix-renamed-memory-allocation-functions.patch"
+    REPO acolombier/portaudio
+    REF cd0fe4d33143044b4fbd1d455fb32beef2c909a3
+    SHA512 88b7aad089bc29ebd4aecf0cdcc5ba57f456d799f435a0f779285a1ec79bde23d213989b3c21200f70d6fede6c4670f5fcb4cdcdc9bf6999aa493e18e8107449
+    # PATCHES
+    #     "0001-Add-basic-support-for-iOS-to-portaudio.patch"
+    #     "0002-Update-CMakeLists-with-iOS-implementation.patch"
+    #     "0003-Fix-renamed-memory-allocation-functions.patch"
 )
 
 string(COMPARE EQUAL ${VCPKG_LIBRARY_LINKAGE} dynamic PA_BUILD_SHARED)
