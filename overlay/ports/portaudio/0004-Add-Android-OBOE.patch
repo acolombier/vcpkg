@@ -285,10 +285,10 @@ index 0000000..1babee2
 +endif()
 diff --git a/include/pa_oboe.h b/include/pa_oboe.h
 new file mode 100644
-index 0000000..c294cad
+index 0000000..7247afa
 --- /dev/null
 +++ b/include/pa_oboe.h
-@@ -0,0 +1,140 @@
+@@ -0,0 +1,151 @@
 +/*
 + * $Id:
 + * PortAudio Portable Real-Time Audio Library
@@ -378,22 +378,33 @@ index 0000000..c294cad
 +enum class PaOboe_PerformanceMode : int32_t { None = 10 , PowerSaving = 11 , LowLatency = 12 };
 +
 +/**
++ * Enum class that emulates Oboe::PerformanceMode
++ */
++enum class PaOboe_SharingMode : int32_t {  Exclusive = 0, Shared = 1 };
++
++/**
++ * Enum class that emulates Oboe::PerformanceMode
++ */
++enum class PaOboe_ContentType : int32_t { Speech = 1, Music = 2, Movie = 3, Sonification = 4 };
++
++/**
 + *  The android stream type and recording preset as defined in Oboe.
 + */
 +typedef struct PaOboeStreamInfo {
++    unsigned long size;
++    PaHostApiTypeId hostApiType; 
++    unsigned long version;
++
 +    PaOboe_Usage androidOutputUsage;
 +    PaOboe_InputPreset androidInputPreset;
++    PaOboe_PerformanceMode performanceMode;
++    PaOboe_SharingMode sharingMode;
++    PaOboe_ContentType contentType;
++    const char* packageName;
 +} PaOboeStreamInfo;
 +
-+
-+/**
-+ * \brief   Provide PaOboe with the performance mode chosen by the user. If this method isn't called, the default mode
-+ *          is LowLatency.
-+ * @param   direction - the direction of the stream for which we want to set the performance mode.
-+ * @param   performanceMode - the performance mode chosen by the user.
-+ */
-+void PaOboe_SetPerformanceMode(PaOboe_Direction direction, PaOboe_PerformanceMode performanceMode);
-+
++/** Initialize host API specific structure, call this before setting relevant attributes. */
++void PaOboe_InitializeStreamInfo( PaOboeStreamInfo *info );
 +
 +/**
 + * Provide PA Oboe with native buffer information. If you call this function, you must do so before
@@ -520,10 +531,10 @@ index 0000000..14d6b6b
 \ No newline at end of file
 diff --git a/src/hostapi/oboe/pa_oboe.cpp b/src/hostapi/oboe/pa_oboe.cpp
 new file mode 100644
-index 0000000..300de51
+index 0000000..a81ac3c
 --- /dev/null
 +++ b/src/hostapi/oboe/pa_oboe.cpp
-@@ -0,0 +1,1782 @@
+@@ -0,0 +1,1817 @@
 +/*
 + * $Id$
 + * PortAudio Portable Real-Time Audio Library
@@ -590,8 +601,10 @@ index 0000000..300de51
 +#include <cstring>
 +#include <memory>
 +#include <cstdint>
++#include <string.h>
 +#include <vector>
 +#include "oboe/Oboe.h"
++// #include "aaudio/AAudioExtensions.h"
 +
 +#include <android/log.h>
 +#include <android/api-level.h>
@@ -618,7 +631,7 @@ index 0000000..300de51
 +        {                                                                   \
 +            PaUtil_DebugPrint(("Expression '" #expr "' failed in '" __FILE__ "', line: " PA_STRINGIZE( \
 +                                                                __LINE__ ) "\n")); \
-+            PaUtil_SetLastHostErrorInfo(paInDevelopment, err, errorText); \
++            PaUtil_SetLastHostErrorInfo(paOboe, err, errorText); \
 +            error = err;                                               \
 +            goto error;                                                     \
 +        }                                                                   \
@@ -695,9 +708,6 @@ index 0000000..300de51
 +};
 +RegisteredDevice* paOboe_registeredDevices = NULL;
 +size_t paOboe_registeredDeviceCount = 0;
-+
-+PerformanceMode paOboe_inputPerformanceMode = PerformanceMode::LowLatency;
-+PerformanceMode paOboe_outputPerformanceMode = PerformanceMode::LowLatency;
 +
 +class OboeEngine;
 +class OboeMediator;
@@ -790,7 +800,8 @@ index 0000000..300de51
 +    bool tryStream(Direction direction, int32_t deviceId, int32_t sampleRate, int32_t channelCount);
 +
 +    PaError openStream(PaOboeStream *paOboeStream, Direction direction, int32_t deviceId, int32_t sampleRate,
-+                       Usage outputUsage, InputPreset inputPreset);
++                       Usage outputUsage, InputPreset inputPreset, PerformanceMode performanceMode,
++                       SharingMode sharingMode, const char* packageName, ContentType contentType);
 +
 +    bool startStream(PaOboeStream *paOboeStream);
 +
@@ -894,7 +905,8 @@ index 0000000..300de51
 + *          a stream, and paInsufficientMemory if the memory allocation of the buffers fails.
 + */
 +PaError OboeEngine::openStream(PaOboeStream *paOboeStream, Direction direction, int32_t deviceId, int32_t sampleRate,
-+                               Usage androidOutputUsage, InputPreset androidInputPreset) {
++                               Usage androidOutputUsage, InputPreset androidInputPreset, PerformanceMode performanceMode,
++                               SharingMode sharingMode, const char* packageName, ContentType contentType) {
 +    PaError error = paNoError;
 +    Result result;
 +
@@ -916,7 +928,7 @@ index 0000000..300de51
 +                ->setSampleRate(sampleRate)
 +                ->setDirection(Direction::Input)
 +                ->setDeviceId(deviceId)
-+                ->setPerformanceMode(paOboe_inputPerformanceMode)
++                ->setPerformanceMode(performanceMode)
 +                ->setInputPreset(androidInputPreset)
 +                ->setFramesPerCallback(paOboeStream->framesPerHostCallback);
 +
@@ -960,13 +972,18 @@ index 0000000..300de51
 +                ->setSampleRate(sampleRate)
 +                ->setDirection(Direction::Output)
 +                ->setDeviceId(deviceId)
-+                ->setPerformanceMode(paOboe_outputPerformanceMode)
++                ->setSharingMode(sharingMode)
++                ->setPackageName(packageName)
++                ->setContentType(contentType)
++                ->setPerformanceMode(performanceMode)
 +                ->setUsage(androidOutputUsage)
 +                ->setFramesPerCallback(paOboeStream->framesPerHostCallback);
 +
 +        if (!(paOboeStream->isBlocking)) {
 +            mediator->setOutputCallback();
 +        }
++
++        // AAudioExtensions::getInstance().setMMapEnabled(false);
 +
 +        result = mediator->mOutputBuilder.openStream(mediator->mOutputStream);
 +        if (result != Result::OK) {
@@ -1477,7 +1494,7 @@ index 0000000..300de51
 +    *hostApi = &oboeHostApi->inheritedHostApiRep;
 +    // Info initialization.
 +    (*hostApi)->info.structVersion = 1;
-+    (*hostApi)->info.type = paInDevelopment;
++    (*hostApi)->info.type = paOboe;
 +    (*hostApi)->info.name = "android Oboe";
 +    (*hostApi)->info.defaultOutputDevice = 0;
 +    (*hostApi)->info.defaultInputDevice = 0;
@@ -1653,6 +1670,7 @@ index 0000000..300de51
 +                androidInputPreset != InputPreset::VoiceRecognition &&
 +                androidInputPreset != InputPreset::VoiceCommunication &&
 +                androidInputPreset != InputPreset::VoicePerformance) {
++                LOGV("[PaOboe - IsFormatSupported]\t Request an unsupported input preset %d", androidInputPreset);
 +                return paIncompatibleHostApiSpecificStreamInfo;
 +            }
 +        }
@@ -1696,6 +1714,7 @@ index 0000000..300de51
 +                androidOutputUsage != Usage::VoiceCommunicationSignalling &&
 +                androidOutputUsage != Usage::Alarm &&
 +                androidOutputUsage != Usage::Game) {
++                LOGV("[PaOboe - IsFormatSupported]\t Request an unsupported usage %d", androidOutputUsage);
 +                return paIncompatibleHostApiSpecificStreamInfo;
 +            }
 +        }
@@ -1731,14 +1750,19 @@ index 0000000..300de51
 + * @return  the value returned by OboeEngine::openStream.
 + */
 +static PaError InitializeOutputStream(PaOboeStream* paOboeStream, PaOboeHostApiRepresentation *oboeHostApi, int32_t deviceId,
-+                                      Usage androidOutputUsage, double sampleRate) {
++                                      Usage androidOutputUsage, double sampleRate, PerformanceMode performanceMode,
++                                      SharingMode sharingMode, const char* packageName, ContentType contentType) {
 +
 +    LOGV("[PaOboe - OpenStream]\t Initialize output stream %d", deviceId);
 +    return oboeHostApi->oboeEngine->openStream(paOboeStream,
 +                                                 Direction::Output, deviceId,
 +                                                 sampleRate,
 +                                                 androidOutputUsage,
-+                                                 Generic); //Input preset won't be used, so we put the default value.
++                                                 Generic,
++                                                 performanceMode,
++                                                 sharingMode,
++                                                 packageName,
++                                                 contentType); //Input preset won't be used, so we put the default value.
 +}
 +
 +
@@ -1755,14 +1779,19 @@ index 0000000..300de51
 + * @return  the value returned by OboeEngine::openStream.
 + */
 +static PaError InitializeInputStream(PaOboeStream* paOboeStream, PaOboeHostApiRepresentation *oboeHostApi, int32_t deviceId,
-+                                     InputPreset androidInputPreset, double sampleRate) {
++                                     InputPreset androidInputPreset, double sampleRate, PerformanceMode performanceMode,
++                                     SharingMode sharingMode, const char* packageName, ContentType contentType) {
 +
 +    LOGV("[PaOboe - OpenStream]\t Initialize input stream %d", deviceId);
 +    return oboeHostApi->oboeEngine->openStream(paOboeStream,
 +                                                 Direction::Input, deviceId,
 +                                                 sampleRate,
 +                                                 Usage::Media,   //Usage won't be used, so we put the default value.
-+                                                 androidInputPreset);
++                                                 androidInputPreset,
++                                                 performanceMode,
++                                                 sharingMode,
++                                                 packageName,
++                                                 contentType);
 +}
 +
 +
@@ -1800,8 +1829,12 @@ index 0000000..300de51
 +    PaSampleFormat hostInputSampleFormat, hostOutputSampleFormat;
 +
 +    //Initialization to generic values, in the event that these hostApiSpecificStreamInfo were not set
-+    Usage androidOutputUsage = Usage::VoiceCommunication;
++    Usage androidOutputUsage = Usage::Media;
 +    InputPreset androidInputPreset = InputPreset::Generic;
++    PerformanceMode performanceMode = PerformanceMode::None;
++    SharingMode sharingMode = SharingMode::Shared;
++    const char* packageName = "org.portaudio";
++    ContentType contentType = ContentType::Speech;
 +
 +    PaOboeStream* paOboeStream = (PaOboeStream *) PaUtil_AllocateZeroInitializedMemory(sizeof(PaOboeStream));;
 +    oboeHostApi->oboeEngine->constructPaOboeStream(paOboeStream);
@@ -1830,10 +1863,18 @@ index 0000000..300de51
 +        /* validate inputStreamInfo */
 +        if (inputParameters->hostApiSpecificStreamInfo) {
 +            // Only has an effect on ANDROID_API>=28.
++            PaOboeStreamInfo * streamInfo = (PaOboeStreamInfo *) inputParameters->hostApiSpecificStreamInfo;
++            androidOutputUsage =
++                    static_cast<Usage>(streamInfo->androidOutputUsage);
 +            androidInputPreset =
-+                    static_cast<InputPreset>(
-+                                ((PaOboeStreamInfo *) outputParameters->hostApiSpecificStreamInfo)->androidInputPreset
-+                            );
++                    static_cast<InputPreset>(streamInfo->androidInputPreset);
++            performanceMode =
++                    static_cast<PerformanceMode>(streamInfo->performanceMode);
++            sharingMode =
++                    static_cast<SharingMode>(streamInfo->sharingMode);
++            packageName = streamInfo->packageName;
++            contentType =
++                    static_cast<ContentType>(streamInfo->contentType);
 +        }
 +        hostInputSampleFormat = PaUtil_SelectClosestAvailableFormat(
 +                paOboeDefaultFormat, inputSampleFormat);
@@ -1861,10 +1902,16 @@ index 0000000..300de51
 +
 +        /* validate outputStreamInfo */
 +        if (outputParameters->hostApiSpecificStreamInfo) {
++            PaOboeStreamInfo * streamInfo = (PaOboeStreamInfo *) outputParameters->hostApiSpecificStreamInfo;
 +            androidOutputUsage =
-+                    static_cast<Usage>(
-+                                ((PaOboeStreamInfo *) outputParameters->hostApiSpecificStreamInfo)->androidOutputUsage
-+                            );
++                    static_cast<Usage>(streamInfo->androidOutputUsage);
++            performanceMode =
++                    static_cast<PerformanceMode>(streamInfo->performanceMode);
++            sharingMode =
++                    static_cast<SharingMode>(streamInfo->sharingMode);
++            packageName = streamInfo->packageName;
++            contentType =
++                    static_cast<ContentType>(streamInfo->contentType);
 +        }
 +        hostOutputSampleFormat = PaUtil_SelectClosestAvailableFormat(
 +                paOboeDefaultFormat, outputSampleFormat);
@@ -1936,7 +1983,7 @@ index 0000000..300de51
 +                        &(paOboeStream->bufferProcessor)) +
 +                        paOboeStream->framesPerHostCallback) / sampleRate;
 +        ENSURE(InitializeInputStream(paOboeStream, oboeHostApi, (int32_t)inputParameters->device,
-+                                     androidInputPreset, sampleRate),
++                                     androidInputPreset, sampleRate, performanceMode, sharingMode, packageName, contentType),
 +               "Initializing input stream failed")
 +    } else { paOboeStream->hasInput = false; }
 +
@@ -1947,7 +1994,7 @@ index 0000000..300de51
 +                        &paOboeStream->bufferProcessor)
 +                 + paOboeStream->framesPerHostCallback) / sampleRate;
 +        ENSURE(InitializeOutputStream(paOboeStream, oboeHostApi, (int32_t)outputParameters->device,
-+                                      androidOutputUsage, sampleRate),
++                                      androidOutputUsage, sampleRate, performanceMode, sharingMode, packageName, contentType),
 +               "Initializing output stream failed");
 +    } else { paOboeStream->hasOutput = false; }
 +
@@ -2291,14 +2338,6 @@ index 0000000..300de51
 +    paOboe_registeredDeviceCount++;
 +}
 +
-+void PaOboe_SetPerformanceMode(PaOboe_Direction direction, PaOboe_PerformanceMode performanceMode) {
-+    if (static_cast<Direction>(direction) == Direction::Input) {
-+        paOboe_inputPerformanceMode = static_cast<PerformanceMode>(performanceMode);
-+    } else {
-+        paOboe_outputPerformanceMode = static_cast<PerformanceMode>(performanceMode);
-+    }
-+}
-+
 +void PaOboe_SetNativeBufferSize(unsigned long bufferSize) {
 +    paOboe_nativeBufferSize = bufferSize;
 +}
@@ -2306,6 +2345,14 @@ index 0000000..300de51
 +void PaOboe_SetNumberOfBuffers(unsigned numberOfBuffers) {
 +    paOboe_numberOfBuffers = numberOfBuffers;
 +}
++
++void PaOboe_InitializeStreamInfo( PaOboeStreamInfo *info )
++{
++    info->size = sizeof (PaOboeStreamInfo);
++    info->hostApiType = paOboe;
++    info->version = 1;
++}
+\ No newline at end of file
 diff --git a/src/os/unix/pa_unix_hostapis.c b/src/os/unix/pa_unix_hostapis.c
 index 1fc022f..754a04d 100644
 --- a/src/os/unix/pa_unix_hostapis.c
