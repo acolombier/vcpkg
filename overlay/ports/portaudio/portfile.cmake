@@ -1,12 +1,13 @@
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
-    REPO acolombier/portaudio
-    REF cd0fe4d33143044b4fbd1d455fb32beef2c909a3
-    SHA512 88b7aad089bc29ebd4aecf0cdcc5ba57f456d799f435a0f779285a1ec79bde23d213989b3c21200f70d6fede6c4670f5fcb4cdcdc9bf6999aa493e18e8107449
-    # PATCHES
-    #     "0001-Add-basic-support-for-iOS-to-portaudio.patch"
-    #     "0002-Update-CMakeLists-with-iOS-implementation.patch"
-    #     "0003-Fix-renamed-memory-allocation-functions.patch"
+    REPO PortAudio/portaudio
+    REF b0cc303e95fdb7c6c953337051378071c9043e88
+    SHA512 fa7b40604ed97c1c5157c4faeb2188e7bbbddd06752811ff8d3facd30151e2f9104737210b7df21cf0f5c0661b28eb6db9b51da09cf015924b4e56835c111c46
+    PATCHES
+        "0001-Add-basic-support-for-iOS-to-portaudio.patch"
+        "0002-Update-CMakeLists-with-iOS-implementation.patch"
+        "0003-Fix-renamed-memory-allocation-functions.patch"
+        "0004-Add-Android-OBOE.patch"
 )
 
 string(COMPARE EQUAL ${VCPKG_LIBRARY_LINKAGE} dynamic PA_BUILD_SHARED)
@@ -17,6 +18,14 @@ vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
     asio PA_USE_ASIO
     jack PA_USE_JACK
 )
+
+if(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "Android")
+    set(FEATURE_OPTIONS 
+        ${FEATURE_OPTIONS}
+        -DOBOE_LIBRARIES=${CURRENT_INSTALLED_DIR}/lib/liboboe.a
+        -DOBOE_INCLUDE_DIR=${CURRENT_INSTALLED_DIR}/include/
+    )
+endif()
 
 vcpkg_configure_cmake(
     SOURCE_PATH ${SOURCE_PATH}
