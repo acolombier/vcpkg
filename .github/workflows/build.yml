@@ -207,7 +207,7 @@ jobs:
     - name: "Upload build to downloads.mixxx.org"
       # if: github.event_name == 'push' && env.SSH_PASSWORD != null
       # Use retry loop to work around intermittent transfer issue
-      uses: nick-fields/retry@51782b1a1a9937801f940082b58bda1461a8220f # Make shell use for all command type: https://github.com/nick-fields/retry/pull/123
+      uses: urecio/retry@51782b1a1a9937801f940082b58bda1461a8220f # Make shell use for all command type: https://github.com/nick-fields/retry/pull/123
       with:
         shell: bash
         max_attempts: 10
